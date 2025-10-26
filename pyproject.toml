@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctypes-modbus"
+version = "0.1.0"
+description = "A lightweight Python Modbus client implemented as a thin wrapper around libmodbus"
+requires-python = ">=3.8"
+readme = "README.md"
+license = "MIT"
+
+[tool.black]
+target-version = ["py314"]
+line_length = 88

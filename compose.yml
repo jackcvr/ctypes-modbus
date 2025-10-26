@@ -1,0 +1,62 @@
+services:
+  pty:
+    image: alpine/socat
+    command: -dd pty,raw,echo=0,link=/dev/ttyUSB0 pty,raw,echo=0,link=/dev/ttyUSB1
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  rtu_server:
+    build: .
+    depends_on:
+      - pty
+    privileged: true
+    volumes:
+      - /dev:/dev
+    init: true
+#    command: /pymodbus/examples/server_async.py \
+#        --comm serial \
+#        --framer rtu \
+#        --port /dev/ttyS_modbus_server \
+#        --store sequential \
+#        --baudrate 115200 \
+#        --log debug"
+    command: /libmodbus/tests/bandwidth-server-one rtu
+
+  test: &TEST
+    build: .
+    volumes:
+      - .:/app
+      - ~/.pypirc:/root/.pypirc:ro
+    privileged: true
+    init: true
+    command: pytest -s
+
+  app: &APP
+    <<: *TEST
+    volumes:
+      - .:/app
+      - /dev:/dev
+    depends_on:
+      - rtu_server
+    environment:
+      DEV: ${DEV:-/dev/ttyUSB1}
+    command: sh -c "sleep 1 && python3 -m benchmarks._ctypes_modbus"
+
+  tcp_server:
+    profiles: [ "bench" ]
+    build: .
+    init: true
+    command: /libmodbus/tests/bandwidth-server-many-up
+
+  bench:
+    <<: *APP
+    profiles: [ "bench" ]
+    volumes:
+      - .:/app
+    depends_on:
+      - tcp_server
+    network_mode: service:tcp_server
+    environment:
+      - DEV
+    command: sh -c "sleep 1 && python3 /app/scripts/bench.py ctypes_modbus,pylibmodbus,pymodbus > benchmark.csv"
